@@ -333,7 +333,11 @@ public class DownloadAutoexecJobPhaseNodesApi extends PrivateBinaryStreamApiComp
                             AccountBaseVo accountVoTmp = accountService.filterAccountByRules(accountByResourceList, tagentIpAccountMap, nodeVo.getResourceId(), protocolVo, nodeVo.getHost(), resourceOSResourceMap, protocolDefaultAccountMap);
                             if (accountVoTmp != null) {
                                 nodeJson.put("protocol", accountVoTmp.getProtocol());
-                                nodeJson.put("password", RC4Util.encrypt(accountVoTmp.getPasswordPlain()));
+                                String password = accountVoTmp.getPasswordPlain();
+                                if (StringUtils.isNotBlank(password)) {
+                                    password = RC4Util.encrypt(password);
+                                }
+                                nodeJson.put("password", password);
                                 nodeJson.put("protocolPort", accountVoTmp.getProtocolPort());
                             } else {
                                 if (StringUtils.isNotBlank(protocolVo.getName())) {
