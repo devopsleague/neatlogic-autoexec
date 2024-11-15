@@ -35,7 +35,7 @@ import neatlogic.framework.form.attribute.core.FormAttributeDataConversionHandle
 import neatlogic.framework.form.attribute.core.IFormAttributeDataConversionHandler;
 import neatlogic.framework.form.dto.FormAttributeVo;
 import neatlogic.framework.process.condition.core.ProcessTaskConditionFactory;
-import neatlogic.framework.process.constvalue.ConditionProcessTaskOptions;
+import neatlogic.framework.process.constvalue.ProcessTaskParams;
 import neatlogic.framework.process.crossover.IProcessTaskCrossoverService;
 import neatlogic.framework.process.dto.ProcessTaskFormAttributeDataVo;
 import neatlogic.framework.process.dto.ProcessTaskStepVo;
@@ -105,7 +105,7 @@ public class CreateJobConfigUtil {
             }
             formAttributeList.addAll(allDownwardFormAttributeList);
         }
-        JSONObject processTaskParam = ProcessTaskConditionFactory.getConditionParamData(Arrays.stream(ConditionProcessTaskOptions.values()).map(ConditionProcessTaskOptions::getValue).collect(Collectors.toList()), currentProcessTaskStepVo);
+        JSONObject processTaskParam = ProcessTaskConditionFactory.getConditionParamData(Arrays.stream(ProcessTaskParams.values()).map(ProcessTaskParams::getValue).collect(Collectors.toList()), currentProcessTaskStepVo);
         // 作业策略createJobPolicy为single时表示单次创建作业，createJobPolicy为batch时表示批量创建作业
         String createPolicy = createJobConfigConfigVo.getCreatePolicy();
         if (Objects.equals(createPolicy, "single")) {
