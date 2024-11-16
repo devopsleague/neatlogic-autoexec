@@ -1342,14 +1342,17 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
      */
     private void updateJobPhaseNode(AutoexecJobVo jobVo, List<ResourceVo> resourceVoList, String userName, Long protocolId, Boolean isResetNode) {
         AutoexecJobPhaseVo jobPhaseVo = jobVo.getCurrentPhase();
+        List<AutoexecJobPhaseNodeVo> nodeList = new ArrayList<>();
+        List<AutoexecJobPhaseNodeRunnerVo> nodeRunnerList = new ArrayList<>();
         boolean isNeedLncd;//用于判断是否需要更新lncd（用于判断是否需要重新下载节点）
         //新增节点需重新下载
-        List<AutoexecJobPhaseNodeVo> originNodeList = autoexecJobMapper.getJobPhaseNodeListByJobPhaseIdAndResourceIdList(jobPhaseVo.getId(), resourceVoList.stream().map(ResourceVo::getId).collect(Collectors.toList()));
+        List<Long> resourceIdList = resourceVoList.stream().map(ResourceVo::getId).collect(Collectors.toList());
+        List<AutoexecJobPhaseNodeVo> originNodeList = autoexecJobMapper.getJobPhaseNodeListByJobPhaseIdAndResourceIdList(jobPhaseVo.getId(), resourceIdList);
         isNeedLncd = originNodeList.size() != resourceVoList.size();
         //恢复删除节点需重新下载
         if (!isNeedLncd) {
             List<AutoexecJobPhaseNodeVo> originDeleteNodeList = autoexecJobMapper.getJobPhaseNodeListByJobPhaseIdAndResourceIdListAndIsDelete(jobPhaseVo.getId(), resourceVoList.stream().map(ResourceVo::getId).collect(Collectors.toList()));
-            isNeedLncd = originDeleteNodeList.size() > 0;
+            isNeedLncd = !originDeleteNodeList.isEmpty();
         }
         if (isNeedLncd) {
             //重新下载
@@ -1369,18 +1372,23 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
             } else {
                 jobPhaseNodeVo = jobPhaseNodeVoOptional.get();
                 jobPhaseNodeVo.setLcd(jobPhaseVo.getLcd());
-                if (isResetNode) {
+                if (Boolean.TRUE.equals(isResetNode)) {
                     jobPhaseNodeVo.setStatus(JobNodeStatus.PENDING.getValue());
                 }
             }
+            nodeList.add(jobPhaseNodeVo);
+            nodeRunnerList.add(new AutoexecJobPhaseNodeRunnerVo(jobPhaseNodeVo));
             //如果大于 0,说明存在旧数据
-            Integer result = autoexecJobMapper.updateJobPhaseNodeByJobIdAndPhaseIdAndResourceId(jobPhaseNodeVo);
-            if (result == null || result == 0) {
-                autoexecJobMapper.insertJobPhaseNode(jobPhaseNodeVo);
-                //防止旧resource 所以ignore insert
-                autoexecJobMapper.insertIgnoreJobPhaseNodeRunner(new AutoexecJobPhaseNodeRunnerVo(jobPhaseNodeVo));
-            }
+//            Integer result = autoexecJobMapper.updateJobPhaseNodeByJobIdAndPhaseIdAndResourceId(jobPhaseNodeVo);
+//            if (result == null || result == 0) {
+//                autoexecJobMapper.insertJobPhaseNode(jobPhaseNodeVo);
+//                //防止旧resource 所以ignore insert
+//                autoexecJobMapper.insertIgnoreJobPhaseNodeRunner(new AutoexecJobPhaseNodeRunnerVo(jobPhaseNodeVo));
+//            }
         });
+
+        autoexecJobMapper.batchInsertJobPhaseNode(nodeList);
+        autoexecJobMapper.batchInsertJobPhaseNodeRunner(nodeRunnerList);
     }
 
     @Override
