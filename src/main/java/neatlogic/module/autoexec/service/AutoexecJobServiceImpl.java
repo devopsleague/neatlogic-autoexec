@@ -548,7 +548,7 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
      */
     private void initLOOPBlockOperation(AutoexecCombopPhaseOperationVo autoexecCombopPhaseOperationVo, AutoexecJobPhaseOperationVo jobPhaseOperationVo, AutoexecJobPhaseVo jobPhaseVo, List<AutoexecJobPhaseVo> jobPhaseVoList, AutoexecJobVo jobVo, Map<String, String> preOperationNameMap) {
         AutoexecCombopPhaseOperationConfigVo combopPhaseOperationConfigVo = autoexecCombopPhaseOperationVo.getConfig();
-        if (combopPhaseOperationConfigVo != null && Objects.equals(autoexecCombopPhaseOperationVo.getOperationName(),"native/LOOP-Block")) {
+        if (combopPhaseOperationConfigVo != null && Objects.equals(autoexecCombopPhaseOperationVo.getOperationName(), "native/LOOP-Block")) {
             String loopItems = combopPhaseOperationConfigVo.getLoopItems();
             String loopItemVar = combopPhaseOperationConfigVo.getLoopItemVar();
             if (StringUtils.isBlank(loopItems)) {
@@ -1273,12 +1273,25 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
             filterJson.put("pageSize", 100);
             ResourceSearchVo searchVo = getResourceSearchVoWithCmdbGroupType(jobVo, filterJson);
             IResourceCrossoverMapper resourceCrossoverMapper = CrossoverServiceFactory.getApi(IResourceCrossoverMapper.class);
-            int count = resourceCrossoverMapper.getResourceCount(searchVo);
+            int count;
+            StringBuilder sqlSb = new StringBuilder();
+            if (searchVo.isCustomCondition()) {
+                searchVo.buildConditionWhereSql(sqlSb, searchVo);
+                count = resourceCrossoverMapper.getResourceCountByDynamicCondition(searchVo, sqlSb.toString());
+            } else {
+                count = resourceCrossoverMapper.getResourceCount(searchVo);
+            }
+
             if (count > 0) {
                 int pageCount = PageUtil.getPageCount(count, searchVo.getPageSize());
                 for (int i = 1; i <= pageCount; i++) {
                     searchVo.setCurrentPage(i);
-                    List<Long> idList = resourceCrossoverMapper.getResourceIdList(searchVo);
+                    List<Long> idList;
+                    if (searchVo.isCustomCondition()) {
+                        idList = resourceCrossoverMapper.getResourceIdListByDynamicCondition(searchVo, sqlSb.toString());
+                    } else {
+                        idList = resourceCrossoverMapper.getResourceIdList(searchVo);
+                    }
                     if (CollectionUtils.isEmpty(idList)) {
                         continue;
                     }
