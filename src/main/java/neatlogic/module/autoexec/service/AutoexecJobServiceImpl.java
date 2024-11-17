@@ -60,6 +60,7 @@ import neatlogic.framework.exception.runner.RunnerHttpRequestException;
 import neatlogic.framework.exception.runner.RunnerMapNotMatchRunnerException;
 import neatlogic.framework.exception.runner.RunnerNotMatchException;
 import neatlogic.framework.integration.authentication.enums.AuthenticateType;
+import neatlogic.framework.transaction.util.TransactionUtil;
 import neatlogic.framework.util.$;
 import neatlogic.framework.util.HttpRequestUtil;
 import neatlogic.framework.util.RestUtil;
@@ -73,6 +74,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -873,7 +875,10 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
             return false;
         }
         if (MapUtils.isNotEmpty(executeNodeConfigVo.getFilter())) {
+            long updateNodeResourceByFilter = System.currentTimeMillis();
             isHasNode = updateNodeResourceByFilter(executeNodeConfigVo, jobVo, userName, protocolId);
+            logger.debug((System.currentTimeMillis() - updateNodeResourceByFilter) + " ##updateNodeResourceByFilter:-------------------------------------------------------------------------------");
+
         }
 
         if (CollectionUtils.isNotEmpty(executeNodeConfigVo.getInputNodeList())) {
@@ -1270,8 +1275,8 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
                     }
                 }
             }
-            filterJson.put("pageSize", 100);
             ResourceSearchVo searchVo = getResourceSearchVoWithCmdbGroupType(jobVo, filterJson);
+            searchVo.setPageSizeBatch(1000);
             IResourceCrossoverMapper resourceCrossoverMapper = CrossoverServiceFactory.getApi(IResourceCrossoverMapper.class);
             int count;
             StringBuilder sqlSb = new StringBuilder();
@@ -1284,23 +1289,33 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
 
             if (count > 0) {
                 int pageCount = PageUtil.getPageCount(count, searchVo.getPageSize());
-                for (int i = 1; i <= pageCount; i++) {
-                    searchVo.setCurrentPage(i);
-                    List<Long> idList;
-                    if (searchVo.isCustomCondition()) {
-                        idList = resourceCrossoverMapper.getResourceIdListByDynamicCondition(searchVo, sqlSb.toString());
-                    } else {
-                        idList = resourceCrossoverMapper.getResourceIdList(searchVo);
+                TransactionStatus transactionStatus = null;
+                try {
+                    transactionStatus = TransactionUtil.openTx();
+                    for (int i = 1; i <= pageCount; i++) {
+                        searchVo.setCurrentPage(i);
+                        List<Long> idList;
+                        if (searchVo.isCustomCondition()) {
+                            idList = resourceCrossoverMapper.getResourceIdListByDynamicCondition(searchVo, sqlSb.toString());
+                        } else {
+                            idList = resourceCrossoverMapper.getResourceIdList(searchVo);
+                        }
+                        if (CollectionUtils.isEmpty(idList)) {
+                            continue;
+                        }
+                        List<ResourceVo> resourceList = resourceCrossoverMapper.getResourceListByIdList(idList);
+                        if (CollectionUtils.isNotEmpty(resourceList)) {
+                            long updateJobPhaseNode = System.currentTimeMillis();
+                            updateJobPhaseNode(jobVo, resourceList, userName, protocolId);
+                            logger.debug((System.currentTimeMillis() - updateJobPhaseNode) + " ##updateJobPhaseNode:-------------------------------------------------------------------------------");
+                        }
                     }
-                    if (CollectionUtils.isEmpty(idList)) {
-                        continue;
-                    }
-                    List<ResourceVo> resourceList = resourceCrossoverMapper.getResourceListByIdList(idList);
-                    if (CollectionUtils.isNotEmpty(resourceList)) {
-                        updateJobPhaseNode(jobVo, resourceList, userName, protocolId);
-                    }
+                    isHasNode = true;
+                    TransactionUtil.commitTx(transactionStatus);
+                } catch (Exception e) {
+                    TransactionUtil.rollbackTx(transactionStatus);
+                    throw e;
                 }
-                isHasNode = true;
             }
             //针对巡检补充os 资产
             if (Objects.equals(jobVo.getSource(), neatlogic.framework.inspect.constvalue.JobSource.INSPECT_APP.getValue())) {
