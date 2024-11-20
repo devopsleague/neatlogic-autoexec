@@ -18,18 +18,13 @@
 package neatlogic.module.autoexec.process.dto;
 
 import com.alibaba.fastjson.JSONObject;
-import neatlogic.framework.autoexec.constvalue.CombopOperationType;
 import neatlogic.framework.autoexec.dto.combop.AutoexecCombopExecuteConfigVo;
 import neatlogic.framework.autoexec.dto.combop.ParamMappingVo;
 import neatlogic.framework.autoexec.dto.job.AutoexecJobVo;
 import neatlogic.framework.common.constvalue.ApiParamType;
-import neatlogic.framework.common.constvalue.SystemUser;
-import neatlogic.framework.process.constvalue.AutoExecJobProcessSource;
 import neatlogic.framework.restful.annotation.EntityField;
 
 public class AutoexecJobBuilder {
-    @EntityField(name = "工单步骤id", type = ApiParamType.LONG)
-    private final Long processTaskStepId;
     @EntityField(name = "组合工具id", type = ApiParamType.LONG)
     private final Long combopId;
     @EntityField(name = "作业名称（唯一标识）", type = ApiParamType.STRING)
@@ -52,10 +47,6 @@ public class AutoexecJobBuilder {
 
     @EntityField(name = "作业参数数据", type = ApiParamType.JSONOBJECT)
     private JSONObject param;
-
-    public Long getProcessTaskStepId() {
-        return processTaskStepId;
-    }
 
     public Long getCombopId() {
         return combopId;
@@ -117,8 +108,7 @@ public class AutoexecJobBuilder {
         this.param = param;
     }
 
-    public AutoexecJobBuilder(Long processTaskStepId, Long combopId) {
-        this.processTaskStepId = processTaskStepId;
+    public AutoexecJobBuilder(Long combopId) {
         this.combopId = combopId;
     }
 
@@ -134,12 +124,6 @@ public class AutoexecJobBuilder {
         }
         jobVo.setName(jobName);
         jobVo.setOperationId(combopId);
-        jobVo.setInvokeId(processTaskStepId);
-        jobVo.setRouteId(processTaskStepId.toString());
-        jobVo.setSource(AutoExecJobProcessSource.ITSM.getValue());
-        jobVo.setOperationType(CombopOperationType.COMBOP.getValue());
-        jobVo.setIsFirstFire(1);
-        jobVo.setAssignExecUser(SystemUser.SYSTEM.getUserUuid());
         return jobVo;
     }
 }

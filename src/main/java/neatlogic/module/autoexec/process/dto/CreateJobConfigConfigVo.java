@@ -46,6 +46,10 @@ public class CreateJobConfigConfigVo {
 
     private List<CreateJobConfigMappingGroupVo> scenarioParamMappingGroupList;
 
+    private String type;
+
+    private String formAttributeUuid;
+
     public Long getCombopId() {
         return combopId;
     }
@@ -132,5 +136,21 @@ public class CreateJobConfigConfigVo {
 
     public void setFormTag(String formTag) {
         this.formTag = formTag;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getFormAttributeUuid() {
+        return formAttributeUuid;
+    }
+
+    public void setFormAttributeUuid(String formAttributeUuid) {
+        this.formAttributeUuid = formAttributeUuid;
     }
 }

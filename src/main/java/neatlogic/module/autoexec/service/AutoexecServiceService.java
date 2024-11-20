@@ -16,7 +16,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 package neatlogic.module.autoexec.service;
 
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import neatlogic.framework.autoexec.dto.combop.AutoexecCombopExecuteNodeConfigVo;
+import neatlogic.framework.autoexec.dto.combop.AutoexecCombopVersionVo;
 import neatlogic.framework.autoexec.dto.service.AutoexecServiceVo;
+import neatlogic.module.autoexec.process.dto.AutoexecJobBuilder;
 
 public interface AutoexecServiceService {
     /**
@@ -26,4 +30,33 @@ public interface AutoexecServiceService {
      * @return 失效原因列表
      */
     JSONArray checkConfigExpired(AutoexecServiceVo serviceVo, boolean throwException);
+
+    /**
+     * 根据配置信息创建AutoexecJobBuilder对象
+     *
+     * @param autoexecServiceVo
+     * @param autoexecCombopVersionVo
+     * @param name
+     * @param scenarioId
+     * @param formAttributeDataList
+     * @param hidecomponentList
+     * @param roundCount
+     * @param executeUser
+     * @param protocol
+     * @param executeNodeConfig
+     * @param runtimeParamMap
+     * @return
+     */
+    AutoexecJobBuilder getAutoexecJobBuilder(
+            AutoexecServiceVo autoexecServiceVo,
+            AutoexecCombopVersionVo autoexecCombopVersionVo,
+            String name,
+            Long scenarioId,
+            JSONArray formAttributeDataList,
+            JSONArray hidecomponentList,
+            Integer roundCount,
+            String executeUser,
+            Long protocol,
+            AutoexecCombopExecuteNodeConfigVo executeNodeConfig,
+            JSONObject runtimeParamMap);
 }
