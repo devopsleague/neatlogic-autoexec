@@ -20,13 +20,18 @@ package neatlogic.module.autoexec.process.stephandler.component;
 import com.alibaba.fastjson.*;
 import neatlogic.framework.asynchronization.threadlocal.UserContext;
 import neatlogic.framework.autoexec.constvalue.AutoexecNotifyTriggerType;
+import neatlogic.framework.autoexec.constvalue.CombopOperationType;
 import neatlogic.framework.autoexec.constvalue.JobStatus;
 import neatlogic.framework.autoexec.dao.mapper.AutoexecJobMapper;
+import neatlogic.framework.autoexec.dto.combop.AutoexecCombopExecuteNodeConfigVo;
 import neatlogic.framework.autoexec.dto.combop.AutoexecCombopVersionVo;
 import neatlogic.framework.autoexec.dto.job.AutoexecJobEnvVo;
 import neatlogic.framework.autoexec.dto.job.AutoexecJobVo;
+import neatlogic.framework.autoexec.dto.service.AutoexecServiceVo;
 import neatlogic.framework.autoexec.exception.AutoexecCombopActiveVersionNotFoundException;
 import neatlogic.framework.autoexec.exception.AutoexecCombopVersionNotFoundException;
+import neatlogic.framework.autoexec.exception.AutoexecServiceConfigExpiredException;
+import neatlogic.framework.autoexec.exception.AutoexecServiceNotFoundException;
 import neatlogic.framework.common.constvalue.SystemUser;
 import neatlogic.framework.crossover.CrossoverServiceFactory;
 import neatlogic.framework.form.dto.AttributeDataVo;
@@ -45,6 +50,7 @@ import neatlogic.framework.process.stephandler.core.ProcessStepHandlerFactory;
 import neatlogic.framework.process.stephandler.core.ProcessStepThread;
 import neatlogic.module.autoexec.constvalue.FailPolicy;
 import neatlogic.module.autoexec.dao.mapper.AutoexecCombopVersionMapper;
+import neatlogic.module.autoexec.dao.mapper.AutoexecServiceMapper;
 import neatlogic.module.autoexec.process.constvalue.CreateJobProcessStepHandlerType;
 import neatlogic.module.autoexec.process.dto.AutoexecJobBuilder;
 import neatlogic.module.autoexec.process.dto.CreateJobConfigConfigVo;
@@ -52,6 +58,7 @@ import neatlogic.module.autoexec.process.dto.CreateJobConfigVo;
 import neatlogic.module.autoexec.process.util.CreateJobConfigUtil;
 import neatlogic.module.autoexec.service.AutoexecCombopService;
 import neatlogic.module.autoexec.service.AutoexecJobActionService;
+import neatlogic.module.autoexec.service.AutoexecServiceService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -81,6 +88,12 @@ public class CreateJobProcessComponent extends ProcessStepHandlerBase {
     private AutoexecCombopVersionMapper autoexecCombopVersionMapper;
     @Resource
     private AutoexecCombopService autoexecCombopService;
+
+    @Resource
+    private AutoexecServiceMapper autoexecServiceMapper;
+
+    @Resource
+    private AutoexecServiceService autoexecServiceService;
 
 
     @Override
@@ -183,17 +196,62 @@ public class CreateJobProcessComponent extends ProcessStepHandlerBase {
                 if (createJobConfigConfigVo == null) {
                     continue;
                 }
-                Long activeVersionId = autoexecCombopVersionMapper.getAutoexecCombopActiveVersionIdByCombopId(createJobConfigConfigVo.getCombopId());
-                if (activeVersionId == null) {
-                    throw new AutoexecCombopActiveVersionNotFoundException(createJobConfigConfigVo.getCombopId());
+                if (Objects.equals(createJobConfigConfigVo.getType(), "service")) {
+                    JSONObject paramObj = null;
+                    Long processTaskId = currentProcessTaskStepVo.getProcessTaskId();
+                    // 如果工单有表单信息，则查询出表单配置及数据
+                    IProcessTaskCrossoverService processTaskCrossoverService = CrossoverServiceFactory.getApi(IProcessTaskCrossoverService.class);
+                    List<FormAttributeVo> formAttributeList = processTaskCrossoverService.getFormAttributeListByProcessTaskIdAngTagNew(processTaskId, createJobConfigConfigVo.getFormTag());
+                    if (CollectionUtils.isNotEmpty(formAttributeList)) {
+                        List<ProcessTaskFormAttributeDataVo> processTaskFormAttributeDataList = processTaskCrossoverService.getProcessTaskFormAttributeDataListByProcessTaskIdAndTagNew(processTaskId, createJobConfigConfigVo.getFormTag());
+                        for (ProcessTaskFormAttributeDataVo attributeDataVo : processTaskFormAttributeDataList) {
+                            if (Objects.equals(attributeDataVo.getAttributeUuid(), createJobConfigConfigVo.getFormAttributeUuid())) {
+                                paramObj = (JSONObject) attributeDataVo.getDataObj();
+                                break;
+                            }
+                        }
+                    }
+                    if (MapUtils.isNotEmpty(paramObj)) {
+                        Long serviceId = paramObj.getLong("serviceId");
+                        AutoexecServiceVo autoexecServiceVo = autoexecServiceMapper.getAutoexecServiceById(serviceId);
+                        if (autoexecServiceVo == null) {
+                            throw new AutoexecServiceNotFoundException(serviceId);
+                        }
+                        if (Objects.equals(autoexecServiceVo.getConfigExpired(), 1)) {
+                            throw new AutoexecServiceConfigExpiredException(autoexecServiceVo.getName());
+                        }
+                        Long combopId = autoexecServiceVo.getCombopId();
+                        AutoexecCombopVersionVo autoexecCombopVersionVo = autoexecCombopVersionMapper.getAutoexecCombopActiveVersionByCombopId(combopId);
+                        if (autoexecCombopVersionVo == null) {
+                            throw new AutoexecCombopActiveVersionNotFoundException(combopId);
+                        }
+                        String name = paramObj.getString("name");
+                        Long scenarioId = paramObj.getLong("scenarioId");
+                        JSONArray formAttributeDataList = paramObj.getJSONArray("formAttributeDataList");
+                        JSONArray hidecomponentList = paramObj.getJSONArray("hidecomponentList");
+                        Integer roundCount = paramObj.getInteger("roundCount");
+                        String executeUser = paramObj.getString("executeUser");
+                        Long protocol = paramObj.getLong("protocol");
+                        AutoexecCombopExecuteNodeConfigVo executeNodeConfig = paramObj.getObject("executeNodeConfig", AutoexecCombopExecuteNodeConfigVo.class);
+                        JSONObject runtimeParamMap = paramObj.getJSONObject("runtimeParamMap");
+                        AutoexecJobBuilder autoexecJobBuilder = autoexecServiceService.getAutoexecJobBuilder(autoexecServiceVo, autoexecCombopVersionVo, name, scenarioId, formAttributeDataList, hidecomponentList, roundCount, executeUser, protocol, executeNodeConfig, runtimeParamMap);
+                        if (autoexecJobBuilder != null) {
+                            builderList.add(autoexecJobBuilder);
+                        }
+                    }
+                } else {
+                    Long activeVersionId = autoexecCombopVersionMapper.getAutoexecCombopActiveVersionIdByCombopId(createJobConfigConfigVo.getCombopId());
+                    if (activeVersionId == null) {
+                        throw new AutoexecCombopActiveVersionNotFoundException(createJobConfigConfigVo.getCombopId());
+                    }
+                    AutoexecCombopVersionVo autoexecCombopVersionVo = autoexecCombopService.getAutoexecCombopVersionById(activeVersionId);
+                    if (autoexecCombopVersionVo == null) {
+                        throw new AutoexecCombopVersionNotFoundException(activeVersionId);
+                    }
+                    // 根据配置信息创建AutoexecJobBuilder对象
+                    List<AutoexecJobBuilder> list = CreateJobConfigUtil.createAutoexecJobBuilderList(currentProcessTaskStepVo, createJobConfigConfigVo, autoexecCombopVersionVo);
+                    builderList.addAll(list);
                 }
-                AutoexecCombopVersionVo autoexecCombopVersionVo = autoexecCombopService.getAutoexecCombopVersionById(activeVersionId);
-                if (autoexecCombopVersionVo == null) {
-                    throw new AutoexecCombopVersionNotFoundException(activeVersionId);
-                }
-                // 根据配置信息创建AutoexecJobBuilder对象
-                List<AutoexecJobBuilder> list = CreateJobConfigUtil.createAutoexecJobBuilderList(currentProcessTaskStepVo, createJobConfigConfigVo, autoexecCombopVersionVo);
-                builderList.addAll(list);
 
             }
             if (CollectionUtils.isEmpty(builderList)) {
@@ -204,6 +262,12 @@ public class CreateJobProcessComponent extends ProcessStepHandlerBase {
             List<Long> jobIdList = new ArrayList<>();
             for (AutoexecJobBuilder builder : builderList) {
                 AutoexecJobVo jobVo = builder.build();
+                jobVo.setOperationType(CombopOperationType.COMBOP.getValue());
+                jobVo.setInvokeId(currentProcessTaskStepVo.getId());
+                jobVo.setRouteId(currentProcessTaskStepVo.getId().toString());
+                jobVo.setSource(AutoExecJobProcessSource.ITSM.getValue());
+                jobVo.setIsFirstFire(1);
+                jobVo.setAssignExecUser(SystemUser.SYSTEM.getUserUuid());
                 try {
                     autoexecJobActionService.validateCreateJob(jobVo);
                     autoexecJobMapper.insertAutoexecJobProcessTaskStep(jobVo.getId(), currentProcessTaskStepVo.getId());

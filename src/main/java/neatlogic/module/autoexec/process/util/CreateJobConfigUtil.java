@@ -190,7 +190,7 @@ public class CreateJobConfigUtil {
             JSONObject processTaskParam) {
         // 组合工具ID
         Long combopId = createJobConfigConfigVo.getCombopId();
-        AutoexecJobBuilder builder = new AutoexecJobBuilder(currentProcessTaskStepVo.getId(), combopId);
+        AutoexecJobBuilder builder = new AutoexecJobBuilder(combopId);
         // 作业名称
         String jobName = createJobConfigConfigVo.getJobName();
         AutoexecCombopVersionConfigVo versionConfig = autoexecCombopVersionVo.getConfig();
