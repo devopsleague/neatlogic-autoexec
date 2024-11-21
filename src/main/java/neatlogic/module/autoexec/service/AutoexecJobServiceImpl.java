@@ -1276,7 +1276,7 @@ public class AutoexecJobServiceImpl implements AutoexecJobService, IAutoexecJobC
                 }
             }
             ResourceSearchVo searchVo = getResourceSearchVoWithCmdbGroupType(jobVo, filterJson);
-            searchVo.setPageSizeBatch(1000);
+            searchVo.setMaxPageSize(1000);
             IResourceCrossoverMapper resourceCrossoverMapper = CrossoverServiceFactory.getApi(IResourceCrossoverMapper.class);
             int count;
             StringBuilder sqlSb = new StringBuilder();
