@@ -102,6 +102,9 @@ public class AllVisibleAutoexecServiceForTreeApi extends PrivateApiComponentBase
                 leafNodeList.add(nodeVo);
             }
         }
+        for (AutoexecServiceNodeVo nodeVo : allNodeList) {
+            nodeVo.getChildrenCount();
+        }
         // 遍历所有叶子节点，找出叶子节点所有上游节点ID，并将叶子节点从树中移除
         List<Long> visibleNodeIdList = new ArrayList<>();
         for (AutoexecServiceNodeVo nodeVo : leafNodeList) {
